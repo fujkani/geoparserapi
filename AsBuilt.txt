@@ -1,0 +1,76 @@
+Ubuntu 20.04 	focal
+
+### Prereqs
+- AZ CLI
+- Az. Functions Core Tools
+
+curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > microsoft.gpgq
+sudo mv microsoft.gpg /etc/apt/trusted.gpg.d/microsoft.gpgfunc init --worker-runtime python --docker
+sudo sh -c 'echo "deb [arch=amd64] https://packages.microsoft.com/repos/microsoft-ubuntu-$(lsb_release -cs)-prod $(lsb_release -cs) main" > /etc/apt/sources.list.d/dotnetdev.list'
+
+sudo apt-get update
+sudo apt-get update
+sudo apt-get install azure-functions-core-tools-3
+
+curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+
+HAVE s supported Python installed : Python 3.8 (64-bit), Python 3.7 (64-bit), Python 3.6 (64-bit), which are supported by Azure Functions.
+
+##### FUNCTIONS APP - NO CUSTOM CONTAINER #####
+
+
+mkdir nlp
+cd nlp
+
+func init geoparser --python
+
+cd geoparser
+
+python -m venv .venv
+source .venv/bin/activate
+
+func new --name geoparse --template "HTTP trigger" --authlevel "anonymous"
+func new --name apiversion --template "HTTP trigger" --authlevel "anonymous"
+
+//install these modules
+
+pip install -U pip setuptools wheel
+pip install -U spacy
+python -m spacy download xx_ent_wiki_sm
+pip install pandas
+pip install geopy
+python -m pip install -U matplotlib
+pip install jsonschema
+
+//Copy paste getNER code
+
+func start
+
+code .
+
+//Deploy to AZ
+
+az login
+
+export functionAppName="geoparser"
+export shareName="nlpshare"
+export mountPath="/nlp"
+export shareId="geoparsershare"
+export pythonVersion="3.8"
+export AZURE_STORAGE_ACCOUNT=<your storage account> 
+export region=<azure region> 
+export pythonVersion=3.8 
+export shareId=nlpdatashare 
+export mountPath=/nlp 
+export resourceGroup=<Your RG> 
+export AZURE_STORAGE_KEY=$(az storage account keys list -g $resourceGroup -n $AZURE_STORAGE_ACCOUNT --query '[0].value' -o tsv)
+
+az functionapp create --name $functionAppName --storage-account $AZURE_STORAGE_ACCOUNT --consumption-plan-location $region --resource-group $resourceGroup --os-type Linux --runtime python --runtime-version $pythonVersion --functions-version 3
+
+az functionapp config appsettings set --name $functionAppName --resource-group $resourceGroup --settings AZURE_FUNCTIONS_ENVIRONMENT="Production"
+az functionapp config appsettings set --name $functionAppName --resource-group $resourceGroup --settings SPACY_PATH="/nlp/nlpdata/spacy/xx_ent_wiki_sm"
+az webapp config storage-account add --resource-group $resourceGroup --name $functionAppName --custom-id $shareId --storage-type AzureFiles --share-name $shareName --account-name $AZURE_STORAGE_ACCOUNT --mount-path $mountPath --access-key $AZURE_STORAGE_KEY
+az webapp config storage-account list --resource-group $resourceGroup --name $functionAppName 
+
+
+ 
